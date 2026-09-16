@@ -1,0 +1,10 @@
+# Threat Model
+
+Version 1.0
+
+| Component                 | Description                                                                                                                           | Intended Mitigation                                                                                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Master Password** | Offline brute-force or dictionary attacks against a stolen vault file.                                                                | Derive the MEK using`Argon2id` with a high iteration count and memory cost (e.g., minimum 500ms compute time).                                                                                 |
+| **Vault at Rest**   | An attacker analyzes the file size/structure to gather metadata (number of accounts) or flips bits in the ciphertext to corrupt data. | Encrypt the entire vault as a single payload rather than per-field. Use AES-256-GCM so any bit-flipping causes an authentication tag verification failure upon decryption, preventing tampering. |
+| **Vault in Memory** | The operating system pages volatile memory to the disk or malware dumps the RAM to extract the plaintext MEK or credentials.          | Explicitly overwrite sensitive variables with zeros immediately after use, bypassing Python's standard garbage collection where possible.                                                         |
+| **Interface**       | Shoulder surfing during password entry or a background application monitoring the system clipboard.                                   | Mask CLI input using the`getpass` module. Implement a background timer using a threading mechanism to automatically clear the copied credential from the system clipboard.                      |
