@@ -25,4 +25,4 @@ The architecture isolates plaintext data handling from the storage layer.
 
 ---
 
-![1789583464193](image/Architecture/1789583464193.png)
+![1789583464193](.images/Architecture/1789583464193.png)
