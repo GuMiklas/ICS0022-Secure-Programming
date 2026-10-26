@@ -4,6 +4,8 @@ import getpass
 import json
 import sys
 
+from cryptography.exceptions import InvalidTag
+
 import crypto
 import storage
 
@@ -13,6 +15,18 @@ MIN_MASTER_LEN = 12
 def save_vault(key: bytes, salt: bytes, params: dict, entries: dict) -> None:
     nonce, ciphertext = crypto.encrypt(key, json.dumps(entries).encode("utf-8"))
     storage.save(salt, params, nonce, ciphertext)
+
+
+def unlock():
+    if not storage.exists():
+        sys.exit("No vault found. Run: python pman.py init")
+    salt, params, nonce, ciphertext = storage.load()
+    key = crypto.derive_key(getpass.getpass("Master password: "), salt, params)
+    try:
+        entries = json.loads(crypto.decrypt(key, nonce, ciphertext))
+    except InvalidTag:
+        sys.exit("Access denied: wrong master password or corrupted vault.")
+    return key, salt, params, entries
 
 
 def cmd_init(args):
@@ -28,10 +42,37 @@ def cmd_init(args):
     print("Vault created.")
 
 
+def cmd_add(args):
+    key, salt, params, entries = unlock()
+    if args.service in entries:
+        sys.exit(f"'{args.service}' already exists. Remove it first.")
+    username = input("Username: ")
+    password = getpass.getpass("Password: ")
+    if not password:
+        sys.exit("Password cannot be empty.")
+    entries[args.service] = {"username": username, "password": password}
+    save_vault(key, salt, params, entries)
+    print(f"Saved '{args.service}'.")
+
+
+def cmd_list(args):
+    _, _, _, entries = unlock()
+    if not entries:
+        print("Vault is empty.")
+        return
+    print(f"{'SERVICE':<20} USERNAME")
+    for service in sorted(entries):
+        print(f"{service:<20} {entries[service]['username']}")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="pman", description="Local password manager")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("init", help="create a new vault").set_defaults(func=cmd_init)
+    p = sub.add_parser("add", help="add a credential")
+    p.add_argument("service")
+    p.set_defaults(func=cmd_add)
+    sub.add_parser("list", help="list services (no passwords)").set_defaults(func=cmd_list)
 
     args = parser.parse_args()
     try:
