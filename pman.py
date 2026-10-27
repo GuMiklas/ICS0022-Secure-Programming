@@ -3,13 +3,16 @@ import argparse
 import getpass
 import json
 import sys
+import time
 
+import pyperclip
 from cryptography.exceptions import InvalidTag
 
 import crypto
 import storage
 
 MIN_MASTER_LEN = 12
+CLIPBOARD_SECONDS = 15
 
 
 def save_vault(key: bytes, salt: bytes, params: dict, entries: dict) -> None:
@@ -65,6 +68,28 @@ def cmd_list(args):
         print(f"{service:<20} {entries[service]['username']}")
 
 
+def cmd_get(args):
+    _, _, _, entries = unlock()
+    entry = entries.get(args.service)
+    if entry is None:
+        sys.exit(f"No entry named '{args.service}'.")
+    print(f"Service:  {args.service}")
+    print(f"Username: {entry['username']}")
+    print("Password: ********")
+    try:
+        pyperclip.copy(entry["password"])
+    except pyperclip.PyperclipException:
+        sys.exit("Clipboard unavailable.")
+    print(f"Password copied to clipboard. Clearing in {CLIPBOARD_SECONDS}s")
+    try:
+        time.sleep(CLIPBOARD_SECONDS)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        pyperclip.copy("")
+    print("Clipboard cleared.")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="pman", description="Local password manager")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -73,6 +98,9 @@ def main():
     p.add_argument("service")
     p.set_defaults(func=cmd_add)
     sub.add_parser("list", help="list services (no passwords)").set_defaults(func=cmd_list)
+    p = sub.add_parser("get", help="copy a password to the clipboard")
+    p.add_argument("service")
+    p.set_defaults(func=cmd_get)
 
     args = parser.parse_args()
     try:
