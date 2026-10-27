@@ -90,6 +90,17 @@ def cmd_get(args):
     print("Clipboard cleared.")
 
 
+def cmd_rm(args):
+    key, salt, params, entries = unlock()
+    if args.service not in entries:
+        sys.exit(f"No entry named '{args.service}'.")
+    if input(f"Type '{args.service}' to confirm deletion: ") != args.service:
+        sys.exit("Cancelled.")
+    del entries[args.service]
+    save_vault(key, salt, params, entries)
+    print(f"Removed '{args.service}'.")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="pman", description="Local password manager")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -101,6 +112,9 @@ def main():
     p = sub.add_parser("get", help="copy a password to the clipboard")
     p.add_argument("service")
     p.set_defaults(func=cmd_get)
+    p = sub.add_parser("rm", help="delete a credential")
+    p.add_argument("service")
+    p.set_defaults(func=cmd_rm)
 
     args = parser.parse_args()
     try:
